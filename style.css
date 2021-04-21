@@ -1,0 +1,106 @@
+#playground * {
+    position: absolute;
+}
+
+body{
+    font-family: cursive;
+    margin: 0;
+    background-image: url("assets/desert_sand.jpg");
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+img{
+    /* border: 2px solid red; */
+}
+
+#feedback{
+    margin: 10px;
+    display: none;
+}
+
+#life{
+    display: flex;
+}
+
+#life>img{
+    padding-right: 10px;
+}
+
+#scoreboard{
+    font-weight: bold;
+    font-size: 25px;
+    margin-top: 10px;
+}
+
+#feedback>img{
+    display: block;
+}
+
+.hearth{
+    fill: red;
+}
+
+#modal{
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+#informations{
+    background-color: #EEE;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+#modal .button{
+    display: block;
+    margin: auto;
+}
+
+#message{
+    font-size: 72px;
+    text-align: center;
+}
+
+.font-gradiant{
+    background: -webkit-linear-gradient(#3498db, #9b59b6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.button{
+    padding: 20px 50px;
+    border-radius: 10px;
+    border: none;
+    color: white;
+    font-weight: 600;
+    letter-spacing: .2rem;
+    background: linear-gradient(#3498db, #9b59b6);
+    transition-duration: 0.5s
+}
+
+.button:hover{
+    cursor: pointer;
+    filter: hue-rotate(100);
+    letter-spacing: .4rem;
+    transition-duration: 0.5s;
+    filter: hue-rotate(90deg);
+}
+
+#animation{
+    padding-top: 100px;
+    display: flex;
+    animation: 10s linear 0s infinite alternate slide;
+}
+
+.gif{
+    width: 64px;
+    height: 64px;
+    margin-left: 30px;
+}
+
+@keyframes slide { from { margin-left:-70%; } to { margin-left:170%; }  }
+
+

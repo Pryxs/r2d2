@@ -1,0 +1,548 @@
+<link rel="stylesheet" href="style.css">
+
+<div id="game">
+    <div id="feedback">  
+        <div id="life">     
+            <img src="assets/hearth.svg" height="32"/>
+            <img src="assets/hearth.svg" height="32"/>
+            <img src="assets/hearth.svg" height="32"/>
+        </div>
+        
+        <div id="scoreboard" class="font-gradiant"></div>
+    </div>
+
+    <div id="modal">
+        <h2 id="message" class="font-gradiant"></h2>
+        <div id="informations">
+            <p>Oh non ! R2D2 s'est perdu dans le désert de Tatooine.
+                Pour aucune raison des rebelles veulent votre métal à bord de leur X-Wing.
+                Petit robot ne se laissera pas faire, utilisez "click gauche" pour les détruire.
+                Vous pouvez aussi les éviter en vous déplaçant à l'aide des touches "Z", "Q", "S" et "D"
+                mais comme on est dans un jeu détruire les méchants vous raportera plus des points.
+            </p>
+            <p>Que la force soit avec vous !</p>
+            <p>PS : R2D2 est parfois capricieux avec certaines hitbox, encore un mauvais coup de seigneur Vador !</p>
+        </div>
+        <button id="start-button" class="button" onclick="start();">START</button>
+    </div>
+
+    <div id="playground">
+    </div>
+    
+    <div id="animation">
+        <img class="r2" src="assets/R2D2.png"/>
+        <img class="gif" src="assets/tumbleweed.gif"/>
+    </div>
+</div>
+
+<script>
+
+
+/*** DECLARATION DES OBJETS ***/
+
+
+/*** Position ***/
+
+function Position(x=0,y=0) {
+    this.x = x;
+    this.y = y;
+}
+
+Position.prototype.add = function(pos= new Position(), element) {
+    this.x += pos.x;
+    this.y += pos.y;
+
+    element.img.style.top = this.y + "px";
+    element.img.style.left = this.x + "px";
+}
+
+
+/*** Sprite ***/
+
+class Sprite{
+    constructor(imgPath,insideDOM=window.document.getElementById("playground")) {
+        this.imgPath = imgPath;
+        this.insideDOM = insideDOM;
+        this.img = document.createElement('img');  
+        this.init();      
+        this.speedY = 0;
+        this.speedX = 0;
+        this.pos = new Position();
+        this.width = this.img.naturalWidth;
+        this.height = this.img.naturalHeight;
+    }
+
+    init(){
+        this.img.setAttribute("src", this.imgPath);
+        this.insideDOM.append(this.img);
+    }
+    
+    hitbox(entity){
+        let right = this.pos.x + this.width > entity.pos.x;
+        let left = this.pos.x < entity.pos.x + entity.width;
+        let top = this.pos.y < entity.pos.y + entity.height;
+        let bot = this.pos.y + this.height > entity.pos.y;
+        return (right && left && top && bot);
+    }
+
+    destroy(){
+        delete game.entities[this.index];
+        game.entities.splice(this.index, 1);
+        game.entities.forEach(element =>{
+            if(element.index > this.index){
+                element.index -= 1;
+            }
+        })
+        let bgd = document.getElementById('playground');
+        bgd.getElementsByTagName('img')[this.index + 1].remove();
+    }    
+}
+
+
+// function Sprite(imgPath="",insideDOM=window.document.getElementById("playground")){
+//     this.img = document.createElement('img');
+//     this.img.setAttribute("src", imgPath);
+//     insideDOM.append(this.img);
+//     rbt = this.img;
+//     this.speedY = 0;
+//     this.speedX = 0;
+//     this.pos = new Position();
+// }
+
+// let sprite = new Sprite(imgPath="R2D2.png");
+
+Sprite.prototype.moveTo = function(pos= new Position()){
+    this.pos.x = pos.x
+    this.pos.y = pos.y
+}
+
+
+Sprite.prototype.moveRel = function(pos= new Position()){
+    let x = this.pos.x + pos.x;
+    let y = this.pos.y + pos.y;
+    let absCondition = (x >= 0 && x < (bgd.width - this.img.width));
+    let ordCondition = (y >= 0 && y < (bgd.height - this.img.height));
+
+    if(absCondition && ordCondition){
+        this.pos.add(pos, this);  
+    } 
+}
+
+
+Sprite.prototype.moveFrame = function(duration){
+    let x = this.speedX * (duration/1000);
+    let y = this.speedY * (duration/1000);
+    this.moveRel(new Position(x,y));
+}
+
+
+/*** entités ***/
+
+class Robot extends Sprite{
+    constructor(imgPath) {
+        super(imgPath);
+        this.life = 3;
+        this.power = 1;
+        this.speed = 100;
+    }
+
+    decrementLife(){
+        this.life -= 1;
+        let element = document.getElementById("life").lastElementChild.remove();
+        this.img.style.filter = "invert(1)";
+        setTimeout(() => this.img.style.filter = "none" ,300)
+    }
+
+    incrementLife(){
+        this.life += 1;
+    }
+
+    checkLife(){
+        if(this.life <= 0){
+            game.run = false;
+            gameOver();
+        }
+    }
+
+    // acceleration du robot
+    managePower(){
+        if(pressed){
+            if(this.power <= 3){
+                this.power += 0.01;
+            }
+        } else {
+            if(this.power > 1){
+                this.power -= 0.05;
+            }
+        }
+        pressed = false;
+    }
+
+    shoot(){
+        // spawn du laser
+        let laser = new Laser(imgPath="assets/laser.png", index = game.entities.length);
+        let laserSpawn = new Position(this.pos.x + (this.width /2) - (laser.width/2), this.pos.y - 50);
+        laser.pos = laserSpawn;
+
+        // changement de referentiel
+        let vecteur = [userClick.x - (this.pos.x + this.width/2), userClick.y- (this.pos.y - 50)];
+        let vecteurAbsolue =  vecteur.slice();
+
+        // normalisation du vecteur
+        vecteurAbsolue[0] = Math.abs(vecteur[0]);
+        vecteurAbsolue[1] = Math.abs(vecteur[1]);
+        let max = Math.max(...vecteurAbsolue);
+        vecteur[0] /= max;
+        vecteur[1] /= max;
+    
+        laser.speedY = vecteur[1] * laser.speed;
+        laser.speedX = vecteur[0] * laser.speed;
+
+        game.entities.push(laser);
+    }
+}
+
+
+class Wing extends Sprite{
+    constructor(imgPath, index) {
+        super(imgPath);
+        this.index = index;
+        this.speed = 100;
+    }
+}
+
+
+class Boots extends Sprite{
+    constructor(imgPath, index) {
+        super(imgPath);
+        this.index = index;
+    }
+}
+
+
+class Laser extends Sprite{
+    constructor(imgPath, index) {
+        super(imgPath);
+        this.index = index;
+        this.speed = 300;
+    }
+}
+
+/*** initialisation du jeu ***/
+
+var bgd = {
+    height : window.innerHeight,
+    width : window.innerWidth
+};
+
+var game = {
+    arrowLeft: false,
+    arrowRight: false,  
+    arrowUp: false,
+    arrowDown: false,
+    shoot: false,
+    score: 0,
+    r2d2: new Robot(imgPath="assets/R2D2.png"),
+    entities: [],
+    run: true,
+    tFrameLast: 0,
+    lock: true
+}
+
+
+let startPosition = new Position((bgd.width/2) - (game.r2d2.width/2), bgd.height - game.r2d2.height - 30);
+game.r2d2.pos = startPosition;
+let images = document.getElementsByTagName('img');
+images[3].style.display = "none";
+
+var spawnPoint = (bgd.width)/2;
+var count = 200;
+var stage = 200;
+var userClick = Position;
+var pressed = false;
+
+
+
+
+/*** GESTION INTERFACE ***/
+
+
+function start(){
+    document.getElementById("start-button").remove();
+    document.getElementById("informations").remove();
+    document.getElementById("feedback").style.display = "block"; 
+    let animation = document.getElementById("animation");
+    animation.style.animationPlayState = 'paused';
+    animation.style.display = "none";
+    let images = document.getElementsByTagName('img');
+
+    images[3].style.display = "initial";  
+    let element = document.getElementById("message"); 
+    element.innerHTML = 3;
+    setTimeout(() => element.innerHTML = 2 ,1000)
+    setTimeout(() => element.innerHTML = 1 ,2000)
+    setTimeout(() => {
+        element.innerHTML = "GO"
+        game.lock = false;
+    },3000)
+    setTimeout(() => element.innerHTML = "",4000)
+    // game.run = true;
+    debug();
+    loop();
+}
+
+function gameOver(){
+    let element = document.getElementById("message"); 
+    element.innerHTML = "GAME OVER";
+}
+
+function refreshScore(){
+    let element = document.getElementById("scoreboard"); 
+    element.innerHTML = "score : " + game.score;
+
+}
+
+
+
+
+// function Robot(imgPath="R2D2.png",insideDOM=window.document.getElementById("playground")){
+//     new Sprite.call(this, imgPath, insideDOM);
+// }
+
+// Robot.prototype = new Sprite();
+// Robot.prototype.constructor = Robot;
+
+
+/*** JEU ***/
+
+
+/*** bind des touches ***/
+
+function changeVal(evt, value){
+    if(!game.lock){
+        switch (evt.keyCode) {
+            // up
+            case 90:  
+                // console.log("Z"); 
+                game.arrowUp = value;
+                break; 
+
+            // left
+            case 81:  
+                // console.log("Q"); 
+                game.arrowLeft = value;
+                break;
+
+            // down
+            case 83:  
+                // console.log("S");
+                game.arrowDown = value;
+                break; 
+
+            // right
+            case 68:  
+                // console.log("D"); 
+                game.arrowRight = value; 
+                break;
+
+            // a
+            case 65:
+                // console.log("A");
+                game.run = false;
+                break;
+        }
+    }
+}
+
+
+window.onkeydown = function(evt){
+    changeVal(evt, true);
+}
+
+window.onkeyup = function(evt){
+    changeVal(evt, false);
+}
+
+window.onclick = function(evt){
+    if(!game.lock){
+        game.shoot = true;
+        userClick = new Position(evt.clientX, evt.clientY)
+    }
+}
+
+
+/*** règles du jeu ***/
+
+
+function outOfMap(element){
+    let bot = element.pos.y > bgd.height - element.height - 20;
+    let top = element.pos.y < 10;
+    let right = element.pos.x > bgd.width - element.width - 20
+    let left = element.pos.x < 20;
+
+    if(bot || top || left || right){
+        element.destroy();
+    }
+}
+
+
+//TODO: fix bug (quand r2d2 bouge, premier wing n'a pas de taille)
+function spawn(game){
+    let length = game.entities.length;
+    let wing = new Wing(imgPath="assets/wing.png", index = length);
+    // génère le point de spawn a > 150px de l'ancien
+    let oldSpawnPoint = spawnPoint;
+    while(Math.abs(spawnPoint - oldSpawnPoint) < 150){
+        spawnPoint = Math.floor(Math.random() * (bgd.width - 128));
+    }
+    wing.pos = new Position(spawnPoint, 10);
+    game.entities.push(wing);
+}
+
+
+function manageEntities(time){
+    game.entities.forEach(element => {
+        if(element instanceof Wing || element instanceof Laser){
+            if(element instanceof Wing){
+                element.speedY = element.speed;
+            } else {
+                // element.speedY = -element.speed;
+                laserHitbox(element);
+            }
+            element.moveFrame(time);
+            outOfMap(element);
+        }
+
+        robotHitbox(element);
+    }
+)}
+
+function laserHitbox(element){
+    game.entities.forEach(entity => {
+        if(entity instanceof Wing){
+            if(element.hitbox(entity)){
+                element.destroy();
+                entity.destroy();
+                manageScore(true, 100)
+            }
+        }
+    })
+}
+
+function robotHitbox(element){
+    if(game.r2d2.hitbox(element)){
+        if(element instanceof Wing){
+            element.destroy();
+            game.r2d2.decrementLife();
+            manageScore(false, 100)
+        } if(element instanceof Boots){
+            element.destroy(); 
+            game.r2d2.speed = 200;
+            manageScore(true, 50)
+            setTimeout(() => game.r2d2.speed = 100 ,10000);
+        }
+    } 
+}
+
+
+function randomEvent(){
+    let number = Math.floor(Math.random() * 1000);
+    switch (number) {
+            case 1:  
+                let length = game.entities.length;
+                generateItem(new Boots(imgPath="assets/boots.png", index = length))
+    }
+}
+
+
+function generateItem(item){
+    let x = Math.floor(Math.random() * (bgd.width - 100));
+    let y = Math.floor(Math.random() * (bgd.height - 100));
+    item.pos = new Position(x, y);
+    item.moveFrame(0);
+    game.entities.push(item);
+}
+
+
+function manageScore(increment, value){
+    if(increment){
+        game.score += value;
+    } else {
+        if(game.score - value >= 0){
+            game.score -= value;
+        }
+    }
+}
+
+function debug(){
+    let wing = new Wing(imgPath="assets/wing.png", index = 0);
+    wing.destroy(); 
+    let boots = new Wing(imgPath="assets/boots.png", index = 0);
+    boots.destroy();
+    let laser = new Laser(imgPath="assets/laser.png", index = 0);
+    laser.destroy();
+}
+
+
+game.update = function(tFrame){
+    let time = tFrame - this.tFrameLast;
+    this.tFrameLast = tFrame;
+    count++;
+
+        // gestion r2d2
+        if(this.arrowUp){
+            this.r2d2.speedY = -this.r2d2.speed *  this.r2d2.power;
+            pressed = true;
+        }if(this.arrowDown){
+            this.r2d2.speedY = this.r2d2.speed *  this.r2d2.power;
+            pressed = true;
+        }if(this.arrowLeft){
+            this.r2d2.speedX = -this.r2d2.speed *  this.r2d2.power;
+            pressed = true;
+        }if(this.arrowRight){
+            this.r2d2.speedX = this.r2d2.speed *  this.r2d2.power;
+            pressed = true;
+        } if(this.arrowUp && this.arrowDown){
+            this.r2d2.speedY = 0;
+        } if(this.arrowRight && this.arrowLeft){
+            this.r2d2.speedX = 0;
+        } if (!(this.arrowUp || this.arrowDown)){
+            this.r2d2.speedY = 0;
+        } if (!(this.arrowRight || this.arrowLeft)){
+            this.r2d2.speedX = 0;
+        } if (this.shoot){
+            this.r2d2.shoot();
+            this.shoot = false;
+        }
+        this.r2d2.moveFrame(time);
+        this.r2d2.managePower();
+        this.r2d2.checkLife();
+
+        //gestion entities
+
+        // augmente le spawn
+        if(count % 1000 == 0 && stage > 50){stage = stage / 2;}
+        if(count % stage == 0){spawn(this);}
+        manageEntities(time);
+
+        //gestion du jeu
+        if(count > 200){randomEvent();}
+        refreshScore();
+}
+
+
+function loop() {
+    function main(tFrame) {
+        let cbId = window.requestAnimationFrame(main);
+        if (! game.run) {
+        window.cancelAnimationFrame(cbId);
+        console.log("Game over");
+        } else {
+        game.update(tFrame);
+        }
+    }
+    main(0); // Début du cycle
+};
+
+</script>
+
