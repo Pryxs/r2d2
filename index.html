@@ -13,6 +13,7 @@
 
     <div id="modal">
         <h2 id="message" class="font-gradiant"></h2>
+        <p id="secondary-message" class="font-gradiant"></p>
         <div id="informations">
             <p>Oh non ! R2D2 s'est perdu dans le désert de Tatooine.
                 Pour aucune raison des rebelles veulent votre métal à bord de leur X-Wing.
@@ -24,6 +25,7 @@
             <p>PS : R2D2 est parfois capricieux avec certaines hitbox, encore un mauvais coup de seigneur Vador !</p>
         </div>
         <button id="start-button" class="button" onclick="start();">START</button>
+        <a id="end-button" href="/"><button class="button">MENU</button></a>
     </div>
 
     <div id="playground">
@@ -65,16 +67,21 @@ class Sprite{
         this.insideDOM = insideDOM;
         this.img = document.createElement('img');  
         this.init();      
-        this.speedY = 0;
+        this.speedY = 0;    
         this.speedX = 0;
         this.pos = new Position();
-        this.width = this.img.naturalWidth;
+        this.width =  this.img.naturalWidth;
         this.height = this.img.naturalHeight;
     }
 
     init(){
         this.img.setAttribute("src", this.imgPath);
         this.insideDOM.append(this.img);
+        // recharge width et height car de temps en temps width et height = 0
+        this.img.onload = () => {
+            this.width = this.img.naturalWidth;
+            this.height = this.img.naturalHeight;
+        }
     }
     
     hitbox(entity){
@@ -96,6 +103,12 @@ class Sprite{
         let bgd = document.getElementById('playground');
         bgd.getElementsByTagName('img')[this.index + 1].remove();
     }    
+
+    // preloadImage(url){
+    //     let image = new Image();
+    //     image.src = url;
+    //     return image;
+    // }
 }
 
 
@@ -148,13 +161,16 @@ class Robot extends Sprite{
 
     decrementLife(){
         this.life -= 1;
-        let element = document.getElementById("life").lastElementChild.remove();
+        document.getElementById("life").lastElementChild.remove();
         this.img.style.filter = "invert(1)";
         setTimeout(() => this.img.style.filter = "none" ,300)
     }
 
     incrementLife(){
         this.life += 1;
+        let child = document.getElementById("life").lastElementChild;
+        let newChild = child.cloneNode();
+        document.getElementById("life").appendChild(newChild);
     }
 
     checkLife(){
@@ -202,7 +218,6 @@ class Robot extends Sprite{
     }
 }
 
-
 class Wing extends Sprite{
     constructor(imgPath, index) {
         super(imgPath);
@@ -211,7 +226,6 @@ class Wing extends Sprite{
     }
 }
 
-
 class Boots extends Sprite{
     constructor(imgPath, index) {
         super(imgPath);
@@ -219,12 +233,48 @@ class Boots extends Sprite{
     }
 }
 
+class Nuke extends Sprite{
+    constructor(imgPath, index) {
+        super(imgPath);
+        this.index = index;
+    }
+}
+
+class Heart extends Sprite{
+    constructor(imgPath, index) {
+        super(imgPath);
+        this.index = index;
+    }
+}
 
 class Laser extends Sprite{
     constructor(imgPath, index) {
         super(imgPath);
         this.index = index;
         this.speed = 300;
+    }
+}
+
+class StarLaser extends Sprite{
+    constructor(imgPath, index) {
+        super(imgPath);
+        this.index = index;
+        this.speed = 200;
+    }
+}
+
+class Star extends Sprite{
+    constructor(imgPath, index) {
+        super(imgPath);
+        this.index = index;
+        this.left = false;
+        this.right = true;
+        this.life = 10;
+        this.fire = false;
+    }
+
+    shoot(){
+        console.log("feu")
     }
 }
 
@@ -246,7 +296,8 @@ var game = {
     entities: [],
     run: true,
     tFrameLast: 0,
-    lock: true
+    lock: true,
+    boss: false
 }
 
 
@@ -287,13 +338,21 @@ function start(){
     },3000)
     setTimeout(() => element.innerHTML = "",4000)
     // game.run = true;
-    debug();
+    // debug();
     loop();
 }
 
-function gameOver(){
-    let element = document.getElementById("message"); 
-    element.innerHTML = "GAME OVER";
+function gameOver(message){
+    if(message){
+        document.getElementById("secondary-message").innerHTML = message;
+    } 
+    document.getElementById("message").innerHTML = "GAME OVER";
+    document.getElementById("end-button").style.display = "block";
+}
+
+function win(){
+    document.getElementById("message").innerHTML = "BRAVO ! R2D2 est sauvé.";
+    document.getElementById("end-button").style.display = "block";
 }
 
 function refreshScore(){
@@ -414,8 +473,32 @@ function manageEntities(time){
         }
 
         robotHitbox(element);
+        maxEntityCraming()
     }
 )}
+
+
+function manageBoss(time){
+    game.entities.forEach(element => {
+        if(element instanceof Star){
+            if(element.right){
+                if(element.pos.x > bgd.width - element.width - 80){
+                    element.right = false;
+                    element.left = true;
+                    element.speedX = -70;
+                }
+            }
+            if(element.left){
+                if(element.pos.x < 80){
+                    element.left = false;
+                    element.right = true;
+                    element.speedX = 70;
+                }
+            }
+        } 
+        element.moveFrame(time);
+    })           
+}
 
 function laserHitbox(element){
     game.entities.forEach(entity => {
@@ -424,6 +507,22 @@ function laserHitbox(element){
                 element.destroy();
                 entity.destroy();
                 manageScore(true, 100)
+            }
+        }
+
+        if(entity instanceof Star){
+            if(element.hitbox(entity)){
+                element.destroy();
+                entity.life -= 1;
+                entity.img.style.filter = "invert(1)";
+                setTimeout(() => entity.img.style.filter = "none" ,300)
+
+                if(entity.life == 0){
+                    entity.destroy();
+                    manageScore(true, 1000)
+                    game.run = false;
+                    win();                  
+                }
             }
         }
     })
@@ -440,17 +539,37 @@ function robotHitbox(element){
             game.r2d2.speed = 200;
             manageScore(true, 50)
             setTimeout(() => game.r2d2.speed = 100 ,10000);
+        } if(element instanceof Nuke){
+            element.destroy(); 
+            game.entities.forEach(wing =>{
+                if(wing instanceof Wing){
+                    wing.destroy();
+                }
+            })
+            manageScore(true, 250)
+        } if(element instanceof Heart){
+            element.destroy(); 
+            if(game.r2d2.life < 3){
+                game.r2d2.incrementLife();
+            }
+            manageScore(true, 50)
+        } if(element instanceof Star){
+            game.run = false;
+            gameOver("Faut pas toucher...");
         }
     } 
 }
 
 
 function randomEvent(){
-    let number = Math.floor(Math.random() * 1000);
+    let number = Math.floor(Math.random() * 1500);
     switch (number) {
             case 1:  
-                let length = game.entities.length;
-                generateItem(new Boots(imgPath="assets/boots.png", index = length))
+                generateItem(new Boots(imgPath="assets/boots.png", index = game.entities.length));
+            case 2:
+                generateItem(new Nuke(imgPath="assets/nuke.png", index = game.entities.length));
+            case 3:
+                generateItem(new Heart(imgPath="assets/heart.png", index = game.entities.length));
     }
 }
 
@@ -474,14 +593,33 @@ function manageScore(increment, value){
     }
 }
 
-function debug(){
-    let wing = new Wing(imgPath="assets/wing.png", index = 0);
-    wing.destroy(); 
-    let boots = new Wing(imgPath="assets/boots.png", index = 0);
-    boots.destroy();
-    let laser = new Laser(imgPath="assets/laser.png", index = 0);
-    laser.destroy();
+// évite de stack trop d'entités => limite a 4 bonus sur la carte
+function maxEntityCraming(){
+    let count = 0;
+    let firstElement;
+    game.entities.forEach(element =>{
+        if(!(element instanceof Wing || element instanceof Star || element instanceof Laser)){
+            if(!firstElement){firstElement = element};
+            count += 1;
+            if(count > 4){
+                firstElement.destroy();
+            }
+        }
+    })
 }
+
+// charge une prmeière fois tout les éléments
+
+// function debug(){
+//     let wing = new Wing(imgPath="assets/wing.png", index = 0);
+//     wing.destroy(); 
+//     let boots = new Wing(imgPath="assets/boots.png", index = 0);
+//     boots.destroy();
+//     let laser = new Laser(imgPath="assets/laser.png", index = 0);
+//     laser.destroy();
+//     let nuke = new Nuke(imgPath="assets/nuke.png", index = 0);
+//     nuke.destroy();
+// }
 
 
 game.update = function(tFrame){
@@ -522,7 +660,20 @@ game.update = function(tFrame){
 
         // augmente le spawn
         if(count % 1000 == 0 && stage > 50){stage = stage / 2;}
-        if(count % stage == 0){spawn(this);}
+        if(count % stage == 0 && stage >= 50){spawn(this);}
+
+        // spawn du boss
+        if(stage <= 50 && this.boss == false){
+            let star = new Star(imgPath="assets/death_star.png", index = game.entities.length);
+            star.pos = new Position((bgd.width/2) - 50, 20)
+            star.speedX = 70;
+            game.entities.push(star);
+            this.boss = true;
+        }
+        if(this.boss == true){
+            manageBoss(time);
+        }
+
         manageEntities(time);
 
         //gestion du jeu
