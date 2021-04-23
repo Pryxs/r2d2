@@ -22,7 +22,7 @@
                 mais comme on est dans un jeu détruire les méchants vous raportera plus des points.
             </p>
             <p>Que la force soit avec vous !</p>
-            <p>PS : R2D2 est parfois capricieux avec certaines hitbox, encore un mauvais coup de seigneur Vador !</p>
+            <p>PS : R2D2 est parfois capricieux quand il reçoit trop d'informations, encore un mauvais coup de seigneur Vador !</p>
         </div>
         <button id="start-button" class="button" onclick="start();">START</button>
         <a id="end-button" href="/"><button class="button">MENU</button></a>
@@ -292,19 +292,13 @@ var game = {
     arrowDown: false,
     shoot: false,
     score: 0,
-    r2d2: new Robot(imgPath="assets/R2D2.png"),
+    r2d2: null,
     entities: [],
     run: true,
     tFrameLast: 0,
     lock: true,
     boss: false
 }
-
-
-let startPosition = new Position((bgd.width/2) - (game.r2d2.width/2), bgd.height - game.r2d2.height - 30);
-game.r2d2.pos = startPosition;
-let images = document.getElementsByTagName('img');
-images[3].style.display = "none";
 
 var spawnPoint = (bgd.width)/2;
 var count = 200;
@@ -319,6 +313,9 @@ var pressed = false;
 
 
 function start(){
+    game.r2d2 = new Robot(imgPath="assets/R2D2.png")
+    let startPosition = new Position((bgd.width/2) - (game.r2d2.width/2), bgd.height - game.r2d2.height - 30);
+    game.r2d2.pos = startPosition;
     document.getElementById("start-button").remove();
     document.getElementById("informations").remove();
     document.getElementById("feedback").style.display = "block"; 
@@ -407,7 +404,7 @@ function changeVal(evt, value){
             // a
             case 65:
                 // console.log("A");
-                game.run = false;
+                // game.run = false;
                 break;
         }
     }
@@ -536,7 +533,7 @@ function robotHitbox(element){
             manageScore(false, 100)
         } if(element instanceof Boots){
             element.destroy(); 
-            game.r2d2.speed = 200;
+            game.r2d2.speed = 120;
             manageScore(true, 50)
             setTimeout(() => game.r2d2.speed = 100 ,10000);
         } if(element instanceof Nuke){
